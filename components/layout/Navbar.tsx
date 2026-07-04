@@ -27,7 +27,7 @@ export function Navbar() {
 
         <Link
           href="/login"
-          className="rounded-md bg-overlay-dark px-4 py-2 text-sm font-medium text-surface transition-opacity hover:opacity-90"
+          className="rounded-md bg-cta-dark px-4 py-2 text-sm font-medium text-surface transition-opacity hover:opacity-90"
         >
           Start for free
         </Link>

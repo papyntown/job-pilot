@@ -50,9 +50,12 @@ Update this file after every completed feature. Any AI agent reading this should
 
 ## Decisions Made During Build
 
-- Homepage CTAs use `bg-overlay-dark` (dark charcoal) to match landing page design — distinct from in-app purple accent buttons.
+- Homepage dark CTAs use the dedicated `--color-cta-dark` token (#36394a) — sampled from the landing-page design's ~#343541 button; distinct from in-app purple accent buttons. (Was `bg-overlay-dark` #131316, corrected as too near-black; briefly reused `bg-text-darker` before getting its own semantic token.) Hero/Bottom CTA buttons are `text-base px-6 py-3`; navbar CTA stays `text-sm`. Hero headline ramps `text-4xl sm:text-5xl md:text-[3.25rem]` (36/48/52px) to match the design without oversizing small phones.
+- Homepage dual CTA extracted to shared `components/homepage/HomeCtaButtons.tsx` (used by Hero + BottomCta) — includes the filled play-triangle arrow icon. Do not re-inline the button pair.
+- Homepage agent-log asset renamed `agnet-log.png` → `agent-log.png` (typo fix); referenced in ApplyWithConfidence.
 - Dashboard and find-jobs preview images copied from `context/designs/` to `public/images/`.
 - Agent log terminal in Apply With Confidence section built as HTML mockup (no image asset).
+- Real homepage image assets wired in after they were added to `public/`: `logo.png` (full lockup) replaces the coded logo in Navbar + Footer; `images/user-icon.png` replaces the testimonial initials; `images/agnet-log.png` replaces the coded agent-log terminal mockup. Hero and ManageJobSearch keep their homepage-specific `*-preview.png` assets — `dashboard-demo.png` and `jobs-lists.png` are reserved for the real Dashboard/Find-Jobs pages, not the homepage.
 
 ---
 

@@ -69,6 +69,9 @@
   --color-overlay: #111827;
   --color-overlay-dark: #131316;
 
+  /* CTA — homepage dark buttons */
+  --color-cta-dark: #36394a;
+
   /* Border radius */
   --radius-sm: 4px;
   --radius-md: 8px;

@@ -1,36 +1,4 @@
-const logLines = [
-  { prefix: "[SYSTEM]", text: "Initializing JobPilot Agent...", color: "text-info" },
-  { prefix: "[SCAN]", text: "Found 14 matching roles", color: "text-success-alt" },
-  {
-    prefix: "[ACTION]",
-    text: "Tailoring resume for Stripe (Frontend)",
-    color: "text-accent",
-  },
-  { prefix: "[ACTION]", text: "Generating cover letter...", color: "text-accent" },
-  { prefix: "[DONE]", text: "Profile updated for Notion role", color: "text-success-alt" },
-  { prefix: "[SCAN]", text: "Researching company: Linear", color: "text-info" },
-];
-
-function AgentLogPreview() {
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-overlay-dark shadow-card">
-      <div className="flex items-center gap-2 border-b border-border-muted px-4 py-3">
-        <span className="size-2.5 rounded-full bg-error" />
-        <span className="size-2.5 rounded-full bg-warning" />
-        <span className="size-2.5 rounded-full bg-success" />
-        <span className="ml-2 font-mono text-xs text-text-muted">agent_log.ts</span>
-      </div>
-      <div className="flex flex-col gap-3 p-5 font-mono text-sm leading-5">
-        {logLines.map((line) => (
-          <p key={`${line.prefix}-${line.text}`} className="text-surface-secondary">
-            <span className={line.color}>{line.prefix}</span>{" "}
-            <span className="text-surface">{line.text}</span>
-          </p>
-        ))}
-      </div>
-    </div>
-  );
-}
+import Image from "next/image";
 
 type FeatureItemProps = {
   title: string;
@@ -55,8 +23,14 @@ export function ApplyWithConfidence() {
     <section className="bg-surface px-6 py-16 md:py-24">
       <div className="mx-auto grid max-w-[1440px] items-center gap-12 lg:grid-cols-2 lg:gap-16">
         <div className="order-2 lg:order-1">
-          <div className="rounded-xl bg-surface-secondary p-3">
-            <AgentLogPreview />
+          <div className="overflow-hidden rounded-xl border border-border bg-surface-secondary p-3 shadow-card">
+            <Image
+              src="/images/agent-log.png"
+              alt="JobPilot agent log showing the agent initializing, scanning roles, filtering by salary, and tailoring a resume"
+              width={2144}
+              height={1656}
+              className="h-auto w-full rounded-lg"
+            />
           </div>
         </div>
 

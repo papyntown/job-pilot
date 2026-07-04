@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export function Testimonial() {
   return (
     <section className="bg-testimonial-pattern px-6 py-16 md:py-24">
@@ -13,9 +15,13 @@ export function Testimonial() {
         </blockquote>
 
         <div className="mt-8 flex flex-col items-center gap-3">
-          <div className="flex size-12 items-center justify-center rounded-full bg-accent-light text-sm font-semibold text-accent">
-            TW
-          </div>
+          <Image
+            src="/images/user-icon.png"
+            alt="Tom Wilson"
+            width={192}
+            height={192}
+            className="size-12 rounded-full object-cover"
+          />
           <div>
             <p className="text-sm font-semibold text-text-primary">Tom Wilson</p>
             <p className="text-sm text-text-muted">Junior Developer</p>
