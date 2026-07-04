@@ -1,3 +1,5 @@
+@AGENT.MD
+
 ## Interaction
 
 Avant de commencer une tâche, si le prompt est ambigu ou

@@ -30,68 +30,64 @@ Never rely on general training knowledge alone for library APIs — they change 
 
 **Check first:** Check AGENTS.md for an installed InsForge skill. If an InsForge MCP server is configured — use it. The skill/MCP will have the latest API patterns.
 
-### Client vs Server
+### Client — real SDK is `@insforge/sdk`
 
-Two separate instances — never mix them:
-
-```typescript
-// lib/insforge-client.ts — browser context only
-import { createBrowserClient } from "@insforge/ssr";
-
-export const insforge = createBrowserClient(
-  process.env.NEXT_PUBLIC_INSFORGE_URL!,
-  process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-);
-```
+> ⚠️ **Corrected 2026-07-04 (Feature 02).** The `@insforge/ssr` package these docs originally referenced (`createBrowserClient` / `createServerClient`, cookie forwarding) **does not exist on npm**. The real InsForge SDK is **`@insforge/sdk`** (v1.4.x), created with `createClient({ baseUrl, anonKey })`. Always fetch the latest InsForge docs via the MCP `fetch-docs` / `fetch-sdk-docs` tools before writing any InsForge code.
 
 ```typescript
-// lib/insforge-server.ts — server context only
-import { createServerClient } from "@insforge/ssr";
-import { cookies } from "next/headers";
+// lib/insforge-client.ts — single shared client instance
+import { createClient } from "@insforge/sdk";
 
-export const createInsforgeServer = async () => {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_INSFORGE_URL!,
-    process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-};
+export const insforge = createClient({
+  baseUrl: process.env.NEXT_PUBLIC_INSFORGE_URL!,
+  anonKey: process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
+});
 ```
 
 **Rules:**
 
-- Browser client — Client Components, browser-side auth state, realtime subscriptions
-- Server client — Server Components, API routes, Server Actions, agent functions
-- Never use browser client in server context
-- Never use server client in browser context
+- Every SDK call returns `{ data, error }` — always handle `error`, never assume success
+- Database inserts require **array** format: `.insert([{ ... }])`
+- Import the shared `insforge` client from `@/lib/insforge-client`
+
+> 🚧 **Server-side usage (Server Components, API routes, Server Actions, agent code) is NOT yet verified.** The old `createInsforgeServer()` cookie pattern is invalid. Before building Features 04+ (DB schema, profile save, agents), fetch the real server/DB/storage patterns via the InsForge MCP (`fetch-docs` → `db-sdk`, `storage-sdk`) and rewrite the sections below. The `.from().select()` / `.storage` examples that follow are **unverified** and retained only as placeholders until reconciled.
 
 ---
 
-### Auth
+### Auth — client-side (`@insforge/sdk`)
+
+OAuth is client-side. `signInWithOAuth` redirects the browser to the provider; on return the SDK auto-detects the `insforge_code` in the URL and exchanges it for a session automatically.
 
 ```typescript
-// Get current user in server context
-const insforge = await createInsforgeServer();
-const {
-  data: { user },
-  error,
-} = await insforge.auth.getUser();
-if (!user) redirect("/login");
+import { insforge } from "@/lib/insforge-client";
+
+// Start OAuth — browser auto-redirects to the provider
+await insforge.auth.signInWithOAuth("google", {
+  redirectTo: `${window.location.origin}/dashboard`,
+});
+
+// Read the current user (client)
+const { data, error } = await insforge.auth.getCurrentUser();
+if (data?.user) {
+  // signed in
+}
+
+// Sign out
+await insforge.auth.signOut();
 ```
+
+**Rules:**
+
+- Method is `getCurrentUser()` — **not** `getUser()`
+- `redirectTo` must be whitelisted in the InsForge dashboard (Auth Methods → allowed redirect URLs)
+- Providers: `"google"`, `"github"` — both enabled on this backend
+- Route protection is a **client-side guard** (`components/auth/AuthGuard.tsx`) — no middleware (see architecture.md)
 
 ---
 
 ### DB Queries
+
+> 🚧 **Unverified against `@insforge/sdk`** — confirm via `fetch-docs` → `db-sdk` before using. Inserts must use array format: `.insert([{ ... }])`.
 
 ```typescript
 // Read

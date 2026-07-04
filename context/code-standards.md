@@ -192,19 +192,20 @@ export async function discoverJobs(
 
 ## InsForge Client Usage
 
+> ⚠️ **Corrected 2026-07-04 (Feature 02).** Uses the real `@insforge/sdk` `createClient`. The server client (`createInsforgeServer` / `@insforge/ssr`) does not exist and must not be reintroduced. A verified server-side pattern is added when Features 04+ are built.
+
 ```typescript
-// Browser context — Client Components only
+// Shared client — import everywhere InsForge is used
 import { insforge } from "@/lib/insforge-client";
 
-// Server context — Server Components, Route Handlers, Server Actions, Agent
-import { createInsforgeServer } from "@/lib/insforge-server";
-const insforge = await createInsforgeServer();
+// Auth (client-side): getCurrentUser / signInWithOAuth / signOut
+const { data, error } = await insforge.auth.getCurrentUser();
 ```
 
-- Never use the browser client in server context
-- Never use the server client in browser context
-- Always await createInsforgeServer() — it reads cookies asynchronously
+- Every SDK call returns `{ data, error }` — always handle `error`
+- Database inserts require array format: `.insert([{ ... }])`
 - Always scope every query to the current user_id — never query without a user filter
+- Server-side InsForge access is not yet implemented — fetch the real pattern via the InsForge MCP before the DB schema feature
 
 ---
 
@@ -305,7 +306,7 @@ Never install a new package without a clear reason. Before installing anything c
 
 Approved dependencies for this project:
 
-- `@insforge/ssr` — InsForge client
+- `@insforge/sdk` — InsForge client (real package; `@insforge/ssr` does not exist)
 - `@browserbasehq/sdk` — Browserbase sessions
 - `@browserbasehq/stagehand` — AI browser control
 - `openai` — GPT-4o API

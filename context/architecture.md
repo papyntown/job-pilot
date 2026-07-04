@@ -289,51 +289,34 @@ Access: authenticated users only, own files only.
 
 ## Authentication
 
-- Provider: InsForge Auth
-- Methods: Google OAuth, GitHub OAuth
+> ⚠️ **Corrected 2026-07-04 (Feature 02).** Implemented on the real `@insforge/sdk` (client-side), not the nonexistent `@insforge/ssr`. Route protection is a **client-side guard**, not middleware.
+
+- Provider: InsForge Auth (`@insforge/sdk`)
+- Methods: Google OAuth, GitHub OAuth (both client-side via `signInWithOAuth`)
 - Protected routes: /dashboard, /profile, /find-jobs, /find-jobs/[id]
 - Public routes: /, /login
-- Middleware in middleware.ts checks session on every protected route
+- Protection: `components/auth/AuthGuard.tsx` — a client component that calls `insforge.auth.getCurrentUser()` on mount and redirects to `/login` when there is no user. Wrap each protected page's content in `<AuthGuard>`. **No `middleware.ts`.**
+- OAuth callback: no dedicated route — `redirectTo` points at `/dashboard`, and the SDK auto-exchanges the `insforge_code` on load
 - On login → redirect to /dashboard
+- `redirectTo` URLs must be whitelisted in the InsForge dashboard (Auth Methods → allowed redirect URLs)
 
 ---
 
 ## InsForge Client Pattern
 
-Two separate InsForge instances — never mix them:
+> ⚠️ **Corrected 2026-07-04 (Feature 02).** The real SDK is **`@insforge/sdk`** with `createClient({ baseUrl, anonKey })`. The `@insforge/ssr` `createBrowserClient` / `createServerClient` cookie pattern below did not exist and has been removed. A verified server-side pattern will be added when Features 04+ are built (fetch via InsForge MCP `db-sdk` / `storage-sdk` first).
 
 ```typescript
-// lib/insforge-client.ts
-// Browser-side — used in client components for auth state
-import { createBrowserClient } from "@insforge/ssr";
-export const insforge = createBrowserClient(
-  process.env.NEXT_PUBLIC_INSFORGE_URL!,
-  process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-);
+// lib/insforge-client.ts — single shared client
+import { createClient } from "@insforge/sdk";
 
-// lib/insforge-server.ts
-// Server-side — used in API routes, Server Actions, agent code
-import { createServerClient } from "@insforge/ssr";
-import { cookies } from "next/headers";
-
-export const createInsforgeServer = async () => {
-  const cookieStore = await cookies();
-  return createServerClient(
-    process.env.NEXT_PUBLIC_INSFORGE_URL!,
-    process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options),
-          );
-        },
-      },
-    },
-  );
-};
+export const insforge = createClient({
+  baseUrl: process.env.NEXT_PUBLIC_INSFORGE_URL!,
+  anonKey: process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!,
+});
 ```
+
+**Server-side InsForge access (API routes, Server Actions, agent code): not yet implemented.** Do not reintroduce `createInsforgeServer()` / `@insforge/ssr`. Fetch the real server + DB patterns from the InsForge MCP before the DB schema feature and document them here.
 
 ---
 

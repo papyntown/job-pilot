@@ -159,6 +159,56 @@ Now a static screenshot asset (`/images/agent-log.png`, intrinsic 2144×1656) in
 
 ---
 
+### Login Page
+
+File: app/(auth)/login/page.tsx
+Last updated: 2026-07-04
+
+| Property       | Class                                                                    |
+| -------------- | ------------------------------------------------------------------------ |
+| Page wrapper   | flex min-h-full flex-1 flex-col items-center justify-center bg-background px-4 py-12 |
+| Card           | w-full max-w-sm rounded-2xl border border-border bg-surface p-8 shadow-card |
+| Heading        | text-2xl font-bold text-text-primary                                     |
+| Subtext        | text-sm font-medium text-text-secondary                                  |
+| OAuth button   | inline-flex items-center justify-center gap-3 rounded-md border border-border bg-surface px-4 py-2.5 text-sm font-medium text-text-primary hover:bg-surface-secondary |
+| Error text     | text-sm font-medium text-error (role="alert")                            |
+| Loading spinner| h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent |
+
+**Pattern notes:**
+Client component. Centered auth card matching the standard card tokens (rounded-2xl, border-border, shadow-card). Two OAuth buttons use the **secondary** button style (surface + border), full width, stacked with `gap-3`. Provider brand icons are inline SVGs — GitHub uses `currentColor`; the Google mark keeps its official multi-color hex (the one sanctioned exception to the no-hardcoded-hex rule, since a brand logo cannot be tokenized). Reuse this spinner + secondary-button pattern for AuthGuard and future auth surfaces.
+
+---
+
+### Auth Guard
+
+File: components/auth/AuthGuard.tsx
+Last updated: 2026-07-04
+
+| Property        | Class                                                                    |
+| --------------- | ------------------------------------------------------------------------ |
+| Loading wrapper | flex min-h-full flex-1 items-center justify-center bg-background         |
+| Spinner         | h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent |
+
+**Pattern notes:**
+Client component wrapping protected page content. Calls `insforge.auth.getCurrentUser()` on mount — shows the spinner while checking, redirects to `/login` if no user, renders children when authed. This is the project's route-protection mechanism (no middleware). Wrap every protected page in `<AuthGuard>`.
+
+---
+
+### Signed-In Panel (placeholder)
+
+File: components/auth/SignedInPanel.tsx
+Last updated: 2026-07-04
+
+| Property   | Class                                                                    |
+| ---------- | ------------------------------------------------------------------------ |
+| Card       | mx-auto flex w-full max-w-sm flex-col items-center rounded-2xl border border-border bg-surface p-8 text-center shadow-card |
+| Sign out   | rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-foreground |
+
+**Pattern notes:**
+Temporary placeholder shown on `/dashboard` to prove the auth session works — displays the signed-in email and a Sign Out button (`insforge.auth.signOut()` → redirect to `/login`). **Replace in Feature 14 (Dashboard — Full UI).** Uses the primary button style (`bg-accent`) for sign out.
+
+---
+
 ### Global Utilities
 
 File: app/globals.css
