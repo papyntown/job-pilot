@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { UserSchema } from "@insforge/sdk";
 
 import { insforge } from "@/lib/insforge-client";
 import { posthog } from "@/lib/posthog-client";
@@ -12,9 +13,20 @@ type Props = {
 
 type Status = "loading" | "authed";
 
+const AuthUserContext = createContext<UserSchema | null>(null);
+
+export function useAuthUser(): UserSchema {
+  const user = useContext(AuthUserContext);
+  if (!user) {
+    throw new Error("useAuthUser must be used within AuthGuard");
+  }
+  return user;
+}
+
 export function AuthGuard({ children }: Props) {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("loading");
+  const [user, setUser] = useState<UserSchema | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -25,6 +37,7 @@ export function AuthGuard({ children }: Props) {
         if (!active) return;
         if (data?.user) {
           posthog.identify(data.user.id, { email: data.user.email });
+          setUser(data.user);
           setStatus("authed");
         } else {
           router.replace("/login");
@@ -50,5 +63,7 @@ export function AuthGuard({ children }: Props) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <AuthUserContext.Provider value={user}>{children}</AuthUserContext.Provider>
+  );
 }

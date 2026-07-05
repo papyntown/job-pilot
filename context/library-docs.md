@@ -50,7 +50,9 @@ export const insforge = createClient({
 - Database inserts require **array** format: `.insert([{ ... }])`
 - Import the shared `insforge` client from `@/lib/insforge-client`
 
-> 🚧 **Server-side usage (Server Components, API routes, Server Actions, agent code) is NOT yet verified.** The old `createInsforgeServer()` cookie pattern is invalid. Before building Features 04+ (DB schema, profile save, agents), fetch the real server/DB/storage patterns via the InsForge MCP (`fetch-docs` → `db-sdk`, `storage-sdk`) and rewrite the sections below. The `.from().select()` / `.storage` examples that follow are **unverified** and retained only as placeholders until reconciled.
+> ✅ **Verified 2026-07-05 (Feature 04).** Fetched the real `db-sdk` / `storage-sdk` / `auth-sdk` docs via the InsForge MCP. Key correction: database operations are namespaced under **`insforge.database.from(...)`**, not `insforge.from(...)` as shown in earlier drafts of this file. Storage and DB query shapes below are now corrected to match the real SDK.
+>
+> 🚧 **Still open:** no documented service-role/admin key distinct from `anonKey`. Server-side code (API routes, Server Actions, agent functions) uses the same SDK surface but must carry the signed-in user's access token for RLS (`auth.uid()`) to resolve. Resolve this before Feature 06 writes anything.
 
 ---
 
@@ -87,25 +89,25 @@ await insforge.auth.signOut();
 
 ### DB Queries
 
-> 🚧 **Unverified against `@insforge/sdk`** — confirm via `fetch-docs` → `db-sdk` before using. Inserts must use array format: `.insert([{ ... }])`.
+Database operations are namespaced under **`insforge.database`** — not `insforge.from(...)` directly.
 
 ```typescript
 // Read
-const { data, error } = await insforge
+const { data, error } = await insforge.database
   .from("jobs")
   .select("*")
   .eq("user_id", user.id)
   .order("found_at", { ascending: false });
 
-// Insert
-const { data, error } = await insforge
+// Insert — array format
+const { data, error } = await insforge.database
   .from("jobs")
-  .insert({ user_id: user.id, title, company, match_score })
+  .insert([{ user_id: user.id, title, company, match_score }])
   .select()
   .single();
 
 // Update
-const { error } = await insforge
+const { error } = await insforge.database
   .from("jobs")
   .update({ company_research: dossier })
   .eq("id", jobId)
@@ -114,29 +116,35 @@ const { error } = await insforge
 
 **Rules:**
 
+- Always go through `insforge.database.from(...)` — never `insforge.from(...)`
 - Always scope queries to `user_id` — never query without user filter
 - Always handle the `error` return — never assume success
 - Use `.single()` when expecting exactly one row
+- Inserts require array format: `.insert([{ ... }])`
+- Filters: `.eq/.neq/.gt/.gte/.lt/.lte/.like/.ilike/.in/.is`. Modifiers: `.order/.limit/.range/.single/.maybeSingle`
 
 ---
 
 ### Storage
 
+> ⚠️ **Corrected 2026-07-05 (Feature 04).** The real `upload()` signature is `upload(path, file)` — there is no `upsert` option. If a file already exists at that key, the backend **auto-renames** it instead of overwriting. Always use the `key` and `url` returned from the call, and save both to the DB — the key is required later for `download()`/`remove()`.
+
 ```typescript
 // Upload file
 const { data, error } = await insforge.storage
   .from("resumes")
-  .upload(`${userId}/resume.pdf`, fileBuffer, {
-    contentType: "application/pdf",
-    upsert: true, // overwrites existing file
-  });
+  .upload(`${userId}/resume.pdf`, fileBuffer);
 
-// Get public URL
-const { data } = insforge.storage
+// data: { bucket, key, size, mimeType, uploadedAt, url }
+await insforge.database
+  .from("profiles")
+  .update({ resume_pdf_url: data.url, resume_pdf_key: data.key })
+  .eq("id", userId);
+
+// Download later — always by key, not URL
+const { data: blob } = await insforge.storage
   .from("resumes")
-  .getPublicUrl(`${userId}/resume.pdf`);
-
-const url = data.publicUrl;
+  .download(data.key);
 ```
 
 **Storage paths:**
@@ -145,8 +153,8 @@ const url = data.publicUrl;
 
 **Rules:**
 
-- Always use `upsert: true` for base resume uploads — overwrites existing file
-- Always save the public URL back to the DB after upload
+- No `upsert` parameter exists — if overwriting a fixed path matters, `remove()` the old key first or accept the auto-renamed key and re-save it to the DB
+- Always save **both** `url` and `key` to the DB after upload — `key` is required for `download()`/`remove()`
 - Never write files to disk — always upload buffer directly to storage
 
 ---

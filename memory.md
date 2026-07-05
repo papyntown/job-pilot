@@ -1,42 +1,51 @@
-# Memory — PostHog Initialization (Feature 03) complete
+# Memory — Database Schema (Feature 04) complete
 
 Last updated: 2026-07-05
 
 ## What was built
 
-Fixed and completed Feature 03 (PostHog Initialization), then reviewed and closed the gaps found:
+Feature 04 — Database Schema, created directly on the live InsForge backend via MCP tools (`run-raw-sql`, `create-bucket`, `get-table-schema`, `list-buckets`) — no application code, schema only:
 
-- **.env.local** — renamed `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` → `NEXT_PUBLIC_POSTHOG_KEY` (fixed the root cause of the "no apiKey provided" console error).
-- **components/PostHogProvider.tsx** — `ui_host` corrected `eu.posthog.com` → `us.posthog.com`; now imports the shared `posthog` instance from `@/lib/posthog-client` instead of `posthog-js` directly.
-- **lib/posthog-client.ts** — removed dead `initPostHog()` (never called anywhere); file now just re-exports the shared `posthog` client instance, which is the project's single source of truth for it.
-- **components/auth/AuthGuard.tsx** — added `posthog.identify(data.user.id, { email: data.user.email })` once a session is confirmed authed.
-- **components/auth/SignedInPanel.tsx** — added `posthog.reset()` on sign out, before redirecting to `/login`.
-- **app/(auth)/login/page.tsx** — removed undocumented `sign_in_started` / `sign_in_failed` `posthog.capture()` calls (not on the project's fixed 4-event list) and the now-unused `posthog-js` import.
-- **context/progress-tracker.md** — checked off `03 PostHog Initialization`, moved `Next` to `04 Database Schema`, and logged all of the above as a new decision entry.
+- **`profiles` table** — all columns from architecture.md plus three additions: `resume_pdf_key` (text), `completion_percentage` (integer, default 0), `missing_fields` (text[]). PK `id` references `auth.users(id) ON DELETE CASCADE`.
+- **`agent_runs` table** — `user_id` references `profiles(id) ON DELETE CASCADE`, `status` default `'running'`.
+- **`jobs` table** — `run_id` references `agent_runs(id) ON DELETE SET NULL` (nullable), `user_id` references `profiles(id) ON DELETE CASCADE`.
+- **`agent_logs` table** — `run_id`/`user_id`/`job_id` FKs, `level` default `'info'`.
+- Indexes: `user_id` on `agent_runs`/`jobs`/`agent_logs`; `run_id` on `jobs`/`agent_logs`; `found_at` DESC and `match_score` DESC on `jobs`.
+- RLS enabled on all four tables, one `FOR ALL` owner policy each (`auth.uid() = id` on `profiles`, `auth.uid() = user_id` on the rest).
+- `handle_new_user()` `SECURITY DEFINER` trigger fires `AFTER INSERT ON auth.users`, auto-creates a blank `profiles` row.
+- `resumes` storage bucket created via `create-bucket(isPublic: false)`.
+- Updated `context/architecture.md`, `context/library-docs.md`, `context/code-standards.md`, `context/progress-tracker.md` with corrections (see below) and marked Feature 04 complete.
 
 ## Decisions made
 
-- PostHog project is **US region** — `ui_host` must be `us.posthog.com` everywhere (matches `NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com`).
-- `lib/posthog-client.ts` is the canonical place to import the shared `posthog` instance from (`@/lib/posthog-client`), not `posthog-js` directly — mirrors how `lib/insforge-client.ts` is used for InsForge.
-- The project's PostHog event list is locked to exactly 4 events (`job_search_started`, `job_found`, `profile_completed`, `company_researched`) per `code-standards.md`. Any new event idea must be added to that list first before being fired — don't add ad hoc events (this is why `sign_in_started`/`sign_in_failed` were removed rather than kept).
+- **DB SDK namespace correction (major):** real InsForge SDK is `insforge.database.from(...)`, not `insforge.from(...)` — every context file had this wrong since Feature 02. Fixed everywhere.
+- **`auth.uid()` / `auth.jwt()` / `auth.role()` are real, working SQL functions** on this backend (Supabase-style convention) — confirmed by introspecting `pg_proc` directly. RLS uses the standard `auth.uid() = user_id` pattern, no InsForge-specific mechanism.
+- **Storage `upload()` has no `upsert` param** — real signature is `upload(path, file)` only; auto-renames on key collision instead of overwriting. Must always save both `url` and `key` returned from upload (key needed later for `download()`/`remove()`). `library-docs.md`'s old example showing `upsert: true` was wrong, corrected.
+- **User's explicit choices this session:**
+  - No DB-level CHECK constraints on enum-shaped columns (`source`, `status`, `level`) — plain `text`, enforced only in app code.
+  - `profiles` row is auto-created on signup via DB trigger, not lazily upserted in Feature 06.
+  - Kept `jobs.source` modeling both `'search'`/`'url'` (nullable `run_id`) matching architecture.md exactly, even though URL import UI is out of scope for this build.
+- **Storage access control is app-layer, not Postgres RLS** — confirmed by querying `pg_policies` (empty) and `storage.buckets` (plain `public` boolean column) directly. `isPublic: false` on `create-bucket` is sufficient; no `storage.objects` RLS to write.
+- User instruction (standing preference, not specific to this feature): **always overwrite `memory.md` on `/remember save` without asking for confirmation first.**
 
 ## Problems solved
 
-- Root cause of the PostHog console error was a var name mismatch between `.env.local` and the code (not a bad key). Confirmed by reading all three PostHog-related files, which already expected `NEXT_PUBLIC_POSTHOG_KEY`.
-- Ran `/review` against `build-plan.md` Feature 03 spec + `code-standards.md`/`library-docs.md` PostHog rules and found real gaps beyond the original bug: missing `identify()`/`reset()` calls, an undocumented-event violation, and dead code. All fixed in the same session per user's "fix" instruction.
-- `npx tsc --noEmit` is clean after all changes.
+- Resolved the two 🚧 unverified-placeholder flags left over from Feature 02/03 (DB SDK shape, storage SDK shape) by fetching real docs via the InsForge MCP (`fetch-docs`/`fetch-sdk-docs` for `db-sdk`, `storage-sdk`, `auth-sdk`) before writing any SQL, then cross-checked by direct Postgres introspection (`information_schema`, `pg_proc`, `pg_policies`) rather than trusting docs alone.
+- Confirmed via `get-backend-metadata` the backend was a completely clean slate (0 tables, 0 buckets) before starting, so no destructive/migration concerns.
 
 ## Current state
 
-- Feature 03 (PostHog Initialization) is now genuinely complete: client init works, `identify`/`reset` wired into the real auth flow, no rule violations, no dead code, tracker updated.
-- **All changes are uncommitted** — no commits made this session.
-- Dev server needs a restart to pick up the env var + import changes (env vars aren't hot-reloaded).
+- All 4 tables + `resumes` bucket exist and verified correct via `get-table-schema`/`list-buckets` (schema, indexes, FKs, RLS policies all confirmed matching what was intended).
+- `context/progress-tracker.md` shows Phase 2, last completed = 04 Database Schema, next = 05 Profile Page — Full UI.
+- No application code touches these tables yet — that starts at Feature 05 (UI, mock data) and Feature 06 (real save logic).
 
 ## Next session starts with
 
-**Feature 04 — Database Schema** (next unchecked item in `context/progress-tracker.md`): create `profiles`, `agent_runs`, `jobs`, `agent_logs` tables + `resumes` storage bucket with RLS scoped to `user_id`. **Before writing any code**, fetch the real InsForge server-side/DB/storage patterns via the InsForge MCP (`fetch-docs` → `db-sdk`, `storage-sdk`) — `architecture.md` and `library-docs.md` both flag their current server-side sections as 🚧 unverified placeholders written against the wrong SDK (`@insforge/ssr`, which doesn't exist; real one is `@insforge/sdk`).
+**Feature 05 — Profile Page (Full UI, mock data)** per build-plan.md: profile-needs-attention banner, resume upload area, Profile Information form (Personal/Professional/Work Experience/Education/Job Preferences sections), Save Profile button. No save logic yet — mock data only, per the project's "UI first, verified visually, then wire logic" build principle.
+
+Before Feature 06 (real save logic) can be built, there's an open architectural gap to resolve first (see below).
 
 ## Open questions
 
-- None outstanding on PostHog — all review findings were resolved this session.
-- Whether to commit the Auth + PostHog work before starting Feature 04 has not been decided.
+- 🚧 **Blocks Feature 06.** No documented InsForge service-role/admin key distinct from `anonKey`. Server-side code (Server Actions, API routes, agent functions) needs the signed-in user's access token attached to its `insforge` client call for RLS's `auth.uid()` to resolve. Mechanism not yet verified — fetch `auth-sdk`/`instructions` docs again and resolve this before writing `actions/profile.ts`.
+- Whether to commit the accumulated uncommitted work (Auth + PostHog + DB Schema, spanning Features 02–04) is still undecided — nothing has been committed yet this build.

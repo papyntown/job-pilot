@@ -42,7 +42,7 @@ The AI agent on this project operates as a senior engineer. This means:
   - Event listeners
   - Third party client-only libraries (PostHog browser side)
 - Never add `"use client"` to layout files unless absolutely required
-- Data fetching happens in Server Components — never fetch in Client Components directly
+- Data fetching happens in Server Components — never fetch in Client Components directly, **except** for RLS-gated InsForge reads/writes that require the signed-in user's session (e.g. profile — see `components/profile/ProfilePageClient.tsx`, `components/profile/ProfileForm.tsx`). No server-side InsForge client exists (see InsForge Client Usage below), so those specific reads/writes must happen client-side via `useEffect`/event handlers. This is a narrow, deliberate exception — not a general license to fetch in client components.
 - Route handlers live in `app/api/` — never put business logic directly in route handlers
 - Server Actions live in `actions/` — never define Server Actions inline in components
 - Caching is uncached by default — all dynamic code runs at request time
@@ -132,6 +132,12 @@ export async function POST(req: NextRequest) {
 
 ## Server Actions
 
+> ⚠️ **Not used by profile save (Feature 06).** This pattern is reserved for future mutations that
+> genuinely need server-only secrets. Profile save uses the client-side InsForge SDK directly from
+> `components/profile/ProfileForm.tsx` instead — see the InsForge Client Usage section below for
+> why (no public API exists to forward the signed-in user's session into a Server Action). This
+> example remains as the pattern to follow if/when a real server-only-secret use case arises.
+
 ```typescript
 // actions/profile.ts
 
@@ -192,7 +198,7 @@ export async function discoverJobs(
 
 ## InsForge Client Usage
 
-> ⚠️ **Corrected 2026-07-04 (Feature 02).** Uses the real `@insforge/sdk` `createClient`. The server client (`createInsforgeServer` / `@insforge/ssr`) does not exist and must not be reintroduced. A verified server-side pattern is added when Features 04+ are built.
+> ⚠️ **Corrected 2026-07-04 (Feature 02), namespace corrected 2026-07-05 (Feature 04).** Uses the real `@insforge/sdk` `createClient`. The server client (`createInsforgeServer` / `@insforge/ssr`) does not exist and must not be reintroduced. Database calls go through `insforge.database.from(...)`, not `insforge.from(...)`.
 
 ```typescript
 // Shared client — import everywhere InsForge is used
@@ -200,12 +206,19 @@ import { insforge } from "@/lib/insforge-client";
 
 // Auth (client-side): getCurrentUser / signInWithOAuth / signOut
 const { data, error } = await insforge.auth.getCurrentUser();
+
+// Database — namespaced under .database
+const { data, error } = await insforge.database
+  .from("jobs")
+  .select("*")
+  .eq("user_id", user.id);
 ```
 
 - Every SDK call returns `{ data, error }` — always handle `error`
 - Database inserts require array format: `.insert([{ ... }])`
 - Always scope every query to the current user_id — never query without a user filter
-- Server-side InsForge access is not yet implemented — fetch the real pattern via the InsForge MCP before the DB schema feature
+- ✅ **Resolved 2026-07-05 (Feature 06).** There is no server-side session attachment mechanism, and none is needed — reading the real `@insforge/sdk` source confirmed no public API exposes the live access token from a client instance. RLS-gated operations (profile reads/writes) happen client-side via the shared browser `insforge` singleton, which already carries its own session for every request.
+- Client components performing RLS-gated DB writes (e.g. profile save) call `insforge.database` directly from `"use client"` code — this is the confirmed pattern for Feature 06, a deliberate deviation from the original Server-Action-only mutation boundary.
 
 ---
 

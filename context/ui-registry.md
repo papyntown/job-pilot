@@ -209,6 +209,138 @@ Temporary placeholder shown on `/dashboard` to prove the auth session works — 
 
 ---
 
+### Navbar (icons + active state)
+
+File: components/layout/Navbar.tsx
+Last updated: 2026-07-05
+
+| Property        | Class                                                      |
+| ---------------- | ----------------------------------------------------------- |
+| Active link      | text-accent (icon + label both inherit via currentColor)    |
+| Inactive link    | text-text-dark hover:text-text-primary                      |
+| Icon size        | h-4 w-4, inline before label, gap-1.5                        |
+
+**Pattern notes:**
+Now a client component (`usePathname`) — each of the three nav links carries an inline SVG icon (grid/dashboard, search/find-jobs, person/profile) that share `currentColor`, so the active-purple/inactive-gray state colors both icon and label together. Matches `context/designs/profile.png`'s navbar exactly. CTA button and Logo unchanged from the original version.
+
+---
+
+### Profile Page
+
+File: app/profile/page.tsx
+Last updated: 2026-07-05
+
+| Property     | Class                                             |
+| ------------ | -------------------------------------------------- |
+| Page wrapper | mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-8 py-8 |
+
+**Pattern notes:**
+Thin Server Component shell — `<Navbar>` + `<AuthGuard>` wrapping `<ProfilePageClient>`, which owns the real data fetch (see below). No `mockProfile` anymore as of Feature 06.
+
+---
+
+### ProfilePageClient
+
+File: components/profile/ProfilePageClient.tsx
+Last updated: 2026-07-05
+
+| Property      | Class                                                                  |
+| ------------- | --------------------------------------------------------------------- |
+| Loading state | flex min-h-[400px] items-center justify-center, spinner border-2 border-border border-t-accent |
+| Error state   | rounded-2xl border border-border bg-surface p-6 shadow-card, text-sm font-medium text-error |
+
+**Pattern notes:**
+Client component (Feature 06) — calls `useAuthUser()` (from `AuthGuard`) for the signed-in user's id, fetches the real `profiles` row via `insforge.database.from("profiles").select("*").eq("id", user.id).single()`, maps it through `rowToProfile` (`lib/profile-mapper.ts`), then renders `ProfileAttentionBanner`/`ResumeUpload`/`ProfileForm` fed real data. This is the reason `app/profile/page.tsx` is a thin shell rather than owning the fetch itself — matches the existing `DashboardPage`/`SignedInPanel` split.
+
+---
+
+### CompletionIndicator
+
+File: components/profile/CompletionIndicator.tsx
+Last updated: 2026-07-05
+
+| Property     | Class / value                                          |
+| ------------ | -------------------------------------------------------- |
+| Wrapper      | relative flex h-28 w-28 items-center justify-center       |
+| Ring track   | stroke="var(--color-error)" strokeOpacity="0.15"          |
+| Ring fill    | stroke="var(--color-error)" strokeWidth 10, round linecap  |
+| Center text  | text-2xl font-bold text-text-primary                       |
+
+**Pattern notes:**
+Pure SVG ring (`-rotate-90` viewBox trick, `strokeDasharray`/`strokeDashoffset` driven by `percentage` prop) — no charting library. Always uses the error/red token regardless of percentage value, matching the design's red ring at 70%. Reused wherever a completion ring is needed.
+
+---
+
+### ProfileAttentionBanner
+
+File: components/profile/ProfileAttentionBanner.tsx
+Last updated: 2026-07-05
+
+| Property        | Class                                                              |
+| ---------------- | --------------------------------------------------------------------- |
+| Card             | flex items-center justify-between rounded-2xl border border-border bg-surface p-6 shadow-card |
+| Missing-field tag | rounded-full bg-error/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-error |
+
+**Pattern notes:**
+Returns `null` when `missingFields` is empty — this is the section's empty state per ui-rules.md. Tag background uses Tailwind v4's `/10` opacity modifier on the `error` token rather than a new named color, since ui-tokens.md has no dedicated "light error" token. Renders `CompletionIndicator` on the right.
+
+---
+
+### ResumeUpload
+
+File: components/profile/ResumeUpload.tsx
+Last updated: 2026-07-05
+
+| Property      | Class                                                                 |
+| ------------- | ------------------------------------------------------------------------ |
+| Dropzone      | rounded-xl border border-dashed border-border-muted bg-surface-tertiary px-6 py-12, hover:bg-surface-secondary |
+| Upload icon   | h-12 w-12 rounded-full bg-surface shadow-card wrapper, text-accent icon inside |
+| Select button | secondary button style (border border-border, bg-surface)                |
+| Generate CTA  | primary button style (bg-accent), with document icon                     |
+
+**Pattern notes:**
+The whole dropzone is a `<label>` wrapping a visually-hidden (`sr-only`) file input — clicking anywhere in the zone opens the file picker natively, no JS drag-and-drop handlers yet. **Explicitly out of scope for Feature 06** (profile save) — stays fully static/unwired; resume upload logic lands in Feature 07/08. "Generate Resume from Profile" button is inert until Feature 08.
+
+---
+
+### FormField
+
+File: components/profile/FormField.tsx
+Last updated: 2026-07-05
+
+| Property | Class                                                    |
+| -------- | ----------------------------------------------------------- |
+| Label    | text-xs font-medium uppercase tracking-wide text-text-secondary |
+| Wrapper  | flex flex-col gap-1.5                                          |
+
+**Pattern notes:**
+Shared label+input vertical wrapper used by every field in `ProfileForm`. Matches the design's uppercase micro-labels (FULL NAME, EMAIL, etc). Reuse for any future form on Find Jobs / job details pages instead of re-inlining label markup.
+
+---
+
+### ProfileForm
+
+File: components/profile/ProfileForm.tsx
+Last updated: 2026-07-05
+
+| Property        | Class                                                                |
+| ---------------- | ------------------------------------------------------------------------ |
+| Section card    | rounded-2xl border border-border bg-surface p-6 shadow-card               |
+| Section divider | border-t border-border pt-6 (between Personal/Professional/Work Exp/Education/Preferences) |
+| Input           | rounded-md border border-border bg-surface px-3 py-2 text-sm, focus:ring-1 ring-accent |
+| Disabled input  | cursor-not-allowed bg-surface-secondary text-text-muted (Email field)      |
+| Skill/industry tag | rounded-full bg-surface-secondary px-3 py-1 text-sm, × remove button    |
+| Role card       | rounded-xl border border-border bg-surface-tertiary p-4                    |
+| Save button     | flex w-full items-center justify-center gap-2 bg-accent px-4 py-3 text-sm font-medium text-accent-foreground, disabled:opacity-60 |
+| Saving spinner  | h-4 w-4 animate-spin rounded-full border-2 border-border border-t-accent (inline in button) |
+| Save error text | text-sm font-medium text-error                                             |
+| Save success text | text-sm font-medium text-success                                         |
+
+**Pattern notes:**
+Client component — **fully wired as of Feature 06.** All scalar/nested fields (Personal Info, Professional Info scalars, Education, Job Preferences) are controlled via one `useState<EditableFields>` object; `skills`/`industries`/`roles` stay as their own separate array states (unchanged from Feature 05) and are only merged in at save time. `handleSave` runs `calculateCompletion` (`lib/utils.ts`), maps the merged profile through `profileToRow` (`lib/profile-mapper.ts`), and calls `insforge.database.from("profiles").update(...).eq("id", profile.id)` directly — no Server Action (see architecture.md's InsForge Client Pattern section for why). Fires `profile_completed` via PostHog on the `isComplete` false→true transition only. Work Experience caps at 3 roles per architecture.md (`+ Add role` link hides itself at the cap). "Currently working here" checkbox clears and disables the End Date field. Email field is permanently disabled/uncontrolled per build-plan.md ("pre-filled, not editable") — excluded from `EditableFields`. Uses native `<select>`/`<input type="month">` — no shadcn/ui components installed in this project despite architecture.md listing it as a dependency; every form primitive here is plain Tailwind-styled HTML matching ui-rules.md's Form Inputs spec directly.
+
+---
+
 ### Global Utilities
 
 File: app/globals.css
