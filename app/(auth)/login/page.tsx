@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import posthog from "posthog-js";
 
 import { Logo } from "@/components/layout/Logo";
 import { insforge } from "@/lib/insforge-client";
@@ -78,7 +77,6 @@ export default function LoginPage() {
   async function handleSignIn(provider: Provider): Promise<void> {
     setError(null);
     setPending(provider);
-    posthog.capture("sign_in_started", { provider });
 
     try {
       const { error: oauthError } = await insforge.auth.signInWithOAuth(
@@ -93,12 +91,10 @@ export default function LoginPage() {
 
       // On success the browser redirects to the provider, so this only runs on failure.
       if (oauthError) {
-        posthog.capture("sign_in_failed", { provider, reason: "oauth_error" });
         setError("Could not start sign-in. Please try again.");
         setPending(null);
       }
     } catch {
-      posthog.capture("sign_in_failed", { provider, reason: "exception" });
       setError("Could not start sign-in. Please try again.");
       setPending(null);
     }

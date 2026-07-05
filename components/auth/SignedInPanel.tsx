@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { insforge } from "@/lib/insforge-client";
+import { posthog } from "@/lib/posthog-client";
 
 export function SignedInPanel() {
   const router = useRouter();
@@ -31,6 +32,7 @@ export function SignedInPanel() {
     setSigningOut(true);
     try {
       await insforge.auth.signOut();
+      posthog.reset();
       router.replace("/login");
     } catch {
       setSigningOut(false);

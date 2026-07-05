@@ -7,8 +7,8 @@ Update this file after every completed feature. Any AI agent reading this should
 ## Current Status
 
 **Phase:** Phase 1 — Foundation
-**Last completed:** 02 Auth
-**Next:** 03 PostHog Initialization
+**Last completed:** 03 PostHog Initialization
+**Next:** 04 Database Schema
 
 ---
 
@@ -18,7 +18,7 @@ Update this file after every completed feature. Any AI agent reading this should
 
 - [x] 01 Homepage
 - [x] 02 Auth
-- [ ] 03 PostHog Initialization
+- [x] 03 PostHog Initialization
 - [ ] 04 Database Schema
 
 ### Phase 2 — Profile Page
@@ -63,6 +63,10 @@ Update this file after every completed feature. Any AI agent reading this should
 - 02 Auth — `app/dashboard/page.tsx` + `components/auth/SignedInPanel.tsx` are a **temporary placeholder** (proves session works, shows email + sign out). Replace in Feature 14.
 - 02 Auth — Google OAuth button keeps the official multi-color logo hex (sanctioned exception to no-hardcoded-hex, brand logos can't be tokenized); GitHub icon uses `currentColor`.
 - 02 Auth — Tailwind stays on v4 despite InsForge's "use 3.4" guidance (ripping it out would break Feature 01). Noted, not acted on.
+- 03 PostHog — **env var name bug fixed.** `.env.local` had `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` instead of `NEXT_PUBLIC_POSTHOG_KEY`, so `PostHogProvider` never received an `apiKey`. Renamed to match code. Also corrected `ui_host` from `eu.posthog.com` to `us.posthog.com` in `PostHogProvider.tsx` and `lib/posthog-client.ts` (project's PostHog host is US region).
+- 03 PostHog — `lib/posthog-client.ts` is now the single shared `posthog` client import (dead `initPostHog()` duplicate removed); `PostHogProvider.tsx`, `AuthGuard.tsx`, and `SignedInPanel.tsx` all import from there instead of `posthog-js` directly.
+- 03 PostHog — `posthog.identify(userId, { email })` now called in `AuthGuard` once a session is confirmed; `posthog.reset()` called in `SignedInPanel` on sign out. Matches the build-plan/library-docs spec that was previously unimplemented.
+- 03 PostHog — removed undocumented `sign_in_started` / `sign_in_failed` events from the login page — `code-standards.md` fixes the event list to exactly 4 events (`job_search_started`, `job_found`, `profile_completed`, `company_researched`); these two weren't on it.
 
 ---
 

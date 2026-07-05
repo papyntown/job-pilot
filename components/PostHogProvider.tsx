@@ -1,9 +1,10 @@
 "use client";
 
-import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, Suspense } from "react";
+
+import { posthog } from "@/lib/posthog-client";
 
 function PostHogPageView() {
   const pathname = usePathname();
@@ -27,7 +28,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       apiKey={process.env.NEXT_PUBLIC_POSTHOG_KEY!}
       options={{
         api_host: process.env.NEXT_PUBLIC_POSTHOG_HOST,
-        ui_host: "https://eu.posthog.com",
+        ui_host: "https://us.posthog.com",
         capture_pageview: false,
         capture_pageleave: true,
       }}

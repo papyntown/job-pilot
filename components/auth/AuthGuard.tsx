@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { insforge } from "@/lib/insforge-client";
+import { posthog } from "@/lib/posthog-client";
 
 type Props = {
   children: React.ReactNode;
@@ -23,6 +24,7 @@ export function AuthGuard({ children }: Props) {
       .then(({ data }) => {
         if (!active) return;
         if (data?.user) {
+          posthog.identify(data.user.id, { email: data.user.email });
           setStatus("authed");
         } else {
           router.replace("/login");

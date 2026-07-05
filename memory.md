@@ -1,47 +1,42 @@
-# Memory — Homepage (Feature 01) image + design polish
+# Memory — PostHog Initialization (Feature 03) complete
 
-Last updated: 2026-07-04
+Last updated: 2026-07-05
 
 ## What was built
 
-Polished the existing homepage to use the real image assets and match `context/designs/landing-page.png`:
+Fixed and completed Feature 03 (PostHog Initialization), then reviewed and closed the gaps found:
 
-- **components/homepage/HomeCtaButtons.tsx** (new) — shared dual CTA ("Get Started" + "Find Your First Match") including the filled play-triangle arrow icon (`PlayArrowIcon`, `text-text-muted`). Single source of truth used by Hero and BottomCta.
-- **components/layout/Logo.tsx** — now renders `public/logo.png` full lockup via next/image (`h-8 w-auto`, intrinsic 496×168); replaced the coded gradient-box + inline SVG + text. Shared by Navbar + Footer.
-- **components/homepage/Testimonial.tsx** — avatar is `images/user-icon.png` (was "TW" initials).
-- **components/homepage/ApplyWithConfidence.tsx** — terminal is `images/agent-log.png` (was a coded dark mockup).
-- **components/homepage/Hero.tsx** / **BottomCta.tsx** — now render `<HomeCtaButtons />`; Hero headline ramped to `text-4xl sm:text-5xl md:text-[3.25rem]`.
-- **components/layout/Navbar.tsx** — CTA uses `bg-cta-dark`.
-- **app/globals.css** — added `--color-cta-dark: #36394a` token.
-- Renamed asset `public/images/agnet-log.png` → `agent-log.png`.
+- **.env.local** — renamed `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` → `NEXT_PUBLIC_POSTHOG_KEY` (fixed the root cause of the "no apiKey provided" console error).
+- **components/PostHogProvider.tsx** — `ui_host` corrected `eu.posthog.com` → `us.posthog.com`; now imports the shared `posthog` instance from `@/lib/posthog-client` instead of `posthog-js` directly.
+- **lib/posthog-client.ts** — removed dead `initPostHog()` (never called anywhere); file now just re-exports the shared `posthog` client instance, which is the project's single source of truth for it.
+- **components/auth/AuthGuard.tsx** — added `posthog.identify(data.user.id, { email: data.user.email })` once a session is confirmed authed.
+- **components/auth/SignedInPanel.tsx** — added `posthog.reset()` on sign out, before redirecting to `/login`.
+- **app/(auth)/login/page.tsx** — removed undocumented `sign_in_started` / `sign_in_failed` `posthog.capture()` calls (not on the project's fixed 4-event list) and the now-unused `posthog-js` import.
+- **context/progress-tracker.md** — checked off `03 PostHog Initialization`, moved `Next` to `04 Database Schema`, and logged all of the above as a new decision entry.
 
 ## Decisions made
 
-- **Dark CTA color = `--color-cta-dark` #36394a**, sampled from the design's ~#343541 button (not the near-black `bg-overlay-dark` #131316). Given its own semantic token.
-- **Homepage uses the `*-preview.png` assets only.** `dashboard-demo.png` and `jobs-lists.png` are reserved for the real Dashboard / Find-Jobs pages (Phase 3/5) — the user explicitly said keep them off the homepage.
-- Logo is the full PNG lockup (icon + wordmark), not a coded component.
-- Homepage title matches design at ~48px (tablet/desktop); base kept at `text-4xl` so small phones aren't oversized.
-- The five project "skills" live in `.claude/skills/` but are NOT registered in Claude Code's runtime (`.claude/skills/`), so they are not slash-invocable — run them manually as workflows.
-- Project working agreement (CLAUDE.md `## Interaction`): when a prompt is ambiguous, ask clarifying questions before coding rather than assume.
+- PostHog project is **US region** — `ui_host` must be `us.posthog.com` everywhere (matches `NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com`).
+- `lib/posthog-client.ts` is the canonical place to import the shared `posthog` instance from (`@/lib/posthog-client`), not `posthog-js` directly — mirrors how `lib/insforge-client.ts` is used for InsForge.
+- The project's PostHog event list is locked to exactly 4 events (`job_search_started`, `job_found`, `profile_completed`, `company_researched`) per `code-standards.md`. Any new event idea must be added to that list first before being fired — don't add ad hoc events (this is why `sign_in_started`/`sign_in_failed` were removed rather than kept).
 
 ## Problems solved
 
-- The homepage was never actually erroring — it was built with coded placeholders/mockups _before_ the real assets were added to `public/`. "Down" meant it looked incomplete vs the design, not a runtime break.
-- Design values were **measured, not guessed**: used PowerShell `System.Drawing` to sample `landing-page.png` at its ~4× export scale — button fill ~#343541, title em-box → ~48px, arrow = filled play-triangle ~13px in muted gray ~#A8A3AD (→ `text-text-muted`).
+- Root cause of the PostHog console error was a var name mismatch between `.env.local` and the code (not a bad key). Confirmed by reading all three PostHog-related files, which already expected `NEXT_PUBLIC_POSTHOG_KEY`.
+- Ran `/review` against `build-plan.md` Feature 03 spec + `code-standards.md`/`library-docs.md` PostHog rules and found real gaps beyond the original bug: missing `identify()`/`reset()` calls, an undocumented-event violation, and dead code. All fixed in the same session per user's "fix" instruction.
+- `npx tsc --noEmit` is clean after all changes.
 
 ## Current state
 
-- Homepage (Feature 01) is complete and design-matched. `tsc --noEmit` clean; page renders `200`; all image assets + next/image optimization serve `200`; `bg-cta-dark` resolves to #36394a in compiled CSS.
-- Passed the project `/review` (0 critical / 0 important). All 4 minor findings fixed (dedup, semantic token, mobile title ramp, filename typo).
-- **All changes are uncommitted** on branch `master`. No commits made this session. (Session-start git state also had `AGENTS.md` deleted and `CLAUDE.md` modified.)
-- A dev server is running on port 3000 (PID 26080 — not started by this session) and hot-reloads the changes.
+- Feature 03 (PostHog Initialization) is now genuinely complete: client init works, `identify`/`reset` wired into the real auth flow, no rule violations, no dead code, tracker updated.
+- **All changes are uncommitted** — no commits made this session.
+- Dev server needs a restart to pick up the env var + import changes (env vars aren't hot-reloaded).
 
 ## Next session starts with
 
-**Feature 02 — Auth** (next unchecked item in `context/progress-tracker.md`): InsForge Google + GitHub OAuth, OAuth callback handler, session middleware protecting `/dashboard` `/profile` `/find-jobs` `/find-jobs/[id]`, redirect to `/dashboard` after login. It's foundational with real decisions (middleware/session strategy, Next.js 16 callback handling) — consider running the `/architect` workflow first.
+**Feature 04 — Database Schema** (next unchecked item in `context/progress-tracker.md`): create `profiles`, `agent_runs`, `jobs`, `agent_logs` tables + `resumes` storage bucket with RLS scoped to `user_id`. **Before writing any code**, fetch the real InsForge server-side/DB/storage patterns via the InsForge MCP (`fetch-docs` → `db-sdk`, `storage-sdk`) — `architecture.md` and `library-docs.md` both flag their current server-side sections as 🚧 unverified placeholders written against the wrong SDK (`@insforge/ssr`, which doesn't exist; real one is `@insforge/sdk`).
 
 ## Open questions
 
-- Mobile title at ~375px was not visually eyeballed (code is correct, no horizontal overflow) — worth a quick check in a mobile viewport.
-- `gh` CLI is not installed, so the GitHub PR review flow is unavailable. Remote is `github.com/papyntown/job-pilot.git`.
-- Decide whether to commit the homepage work before starting Auth.
+- None outstanding on PostHog — all review findings were resolved this session.
+- Whether to commit the Auth + PostHog work before starting Feature 04 has not been decided.
